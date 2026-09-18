@@ -1,0 +1,51 @@
+{
+  "name": "nitro-di",
+  "version": "0.1.0",
+  "type": "module",
+  "files": [
+    "module.mjs",
+    "module.d.ts",
+    "runtime.ts",
+    "types.ts",
+    "README.md",
+    "tsconfig.json"
+  ],
+  "exports": {
+    ".": {
+      "types": "./module.d.ts",
+      "default": "./module.mjs"
+    },
+    "./runtime": "./runtime.ts",
+    "./types": "./types.ts",
+    "./tsconfig": "./tsconfig.json"
+  },
+  "peerDependencies": {
+    "nitro": "^3.0.260610-beta || ^3.0.0"
+  },
+  "dependencies": {
+    "awilix": "^13.0.5",
+    "tsx": "^4.23.13"
+  },
+  "description": "nitroDI — typed dependency injection and auto-loading for Nitro",
+  "author": {
+    "name": "abdallah-zaghloul",
+    "email": "3bdallahzaghloul@gmail.com",
+    "url": "https://github.com/abdallah-zaghloul"
+  },
+  "homepage": "https://github.com/abdallah-zaghloul/nitro-di#readme",
+  "socials": {
+    "github": "https://github.com/abdallah-zaghloul",
+    "youtube": "https://www.youtube.com/channel/UCRQxDCZ6O-204s3vxnkS6kw",
+    "linkedin": "https://www.linkedin.com/in/abdallah-zaghloul/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/abdallah-zaghloul/nitro-di.git"
+  },
+  "bugs": {
+    "url": "https://github.com/abdallah-zaghloul/nitro-di/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

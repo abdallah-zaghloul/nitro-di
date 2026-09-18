@@ -1,0 +1,17 @@
+{
+  "extends": "nitro/tsconfig",
+  "include": [
+    "${configDir}/node_modules/.nitro/types/nitro-imports.d.ts",
+    "${configDir}/**/*"
+  ],
+  "compilerOptions": {
+    "paths": {
+      "#imports": [
+        "${configDir}/node_modules/.nitro/types/nitro-imports.d.ts"
+      ],
+      "~/*": [
+        "${configDir}/*"
+      ]
+    }
+  }
+}

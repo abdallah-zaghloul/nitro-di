@@ -34,5 +34,13 @@ export default {
       { name: "di", from: fileURLToPath(new URL("./runtime.ts", import.meta.url)) },
     ];
     nitro.options.runtimeConfig.nitroDI = { dirs: patterns, resolverOptions: { lifetime } };
+    // Vite initializes its Nitro instance before this hook in both dev and build.
+    // Generate declarations from that instance, including inline plugin config.
+    if (nitro.options.builder === "vite") {
+      nitro.hooks.hook("build:before", async () => {
+        const { writeTypes } = await import("nitro/builder");
+        await writeTypes(nitro);
+      });
+    }
   },
 };

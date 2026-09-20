@@ -54,3 +54,12 @@ test("disabled imports retains discovery without implicit imports", () => {
   assert.equal(options.imports.imports[0].name, "di");
   assert.deepEqual(options.imports.dirs, [resolve("server/services/*.ts")]);
 });
+
+ test("Vite registers type generation on its configured instance", () => {
+  const hooks = [];
+  const options = { rootDir: process.cwd(), builder: "vite", imports: false, runtimeConfig: {} };
+  nitroDI.setup({ options, hooks: { hook: (name, callback) => hooks.push({ name, callback }) } });
+  assert.equal(hooks.length, 1);
+  assert.equal(hooks[0].name, "build:before");
+  assert.equal(typeof hooks[0].callback, "function");
+});

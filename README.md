@@ -22,7 +22,7 @@ Nitro 3 module providing Awilix auto-loading, TypeScript transformation, and a t
 
    This already extends Nitro's defaults and includes its generated declarations and the `#imports` and `~/*` mappings. The package does not edit your tsconfig. If you override `include` or `compilerOptions.paths`, preserve these entries because TypeScript replaces those settings.
 
-3. Register the module in `nitro.config.ts`:
+3. Register the module in `nitro.config.ts` for the Nitro CLI, or use the [Vite configuration](#vite-configuration) below instead:
 
 ```ts
 import { defineConfig } from "nitro";
@@ -42,6 +42,67 @@ export default defineConfig({
 The module adds these patterns to Nitro's auto-import scan and passes them to Awilix. No separate service/repository `imports.dirs` entries are needed. Default-exported classes are registered with camelCase names and classic constructor injection. Named constructor arguments must match registration names. `tsx` enables constructor parameter properties.
 
 `resolverOptions.lifetime` accepts `"SINGLETON"`, `"SCOPED"`, or `"TRANSIENT"` (Awilix `LifetimeType`). It defaults to `"SINGLETON"`. The helper uses one root container; `"SCOPED"` does not create a separate scope per request.
+
+## Vite configuration
+
+Starting with `0.1.3`, DI settings can live directly inside `nitro({})` in `vite.config.ts`, with generated types for editor completion. You do not need to duplicate the module or DI settings in `nitro.config.ts`.
+
+```ts
+import { defineConfig } from "vite";
+import { nitro } from "nitro/vite";
+import nitroDI from "nitro-di";
+
+export default defineConfig({
+  plugins: [
+    nitro({
+      serverDir: "./server",
+      modules: [nitroDI],
+      imports: false, // Use explicit imports; set { autoImport: true } to opt in.
+      di: {
+        dirs: ["server/services/**/*.ts", "server/repos/**/*.ts"],
+        resolverOptions: { lifetime: "SINGLETON" },
+      },
+    }),
+  ],
+});
+```
+
+Keep this project-root `tsconfig.json`:
+
+```json
+{
+  "extends": "nitro-di/tsconfig"
+}
+```
+
+Avoid overriding `compilerOptions.paths` with only your own aliases: that removes the inherited `#imports` mapping used for DI completion. The shared config already provides `~/*`.
+
+For example, `server/api/hello.ts` can explicitly import the helper:
+
+```ts
+import { defineHandler } from "nitro";
+import { di } from "nitro-di/runtime";
+
+export default defineHandler(() => ({ api: di.userService.show() }));
+```
+
+This assumes a default-exported `server/services/user-service.ts` class with a `show()` method. The service and repository examples below also work under `server/` with the configured patterns.
+
+Run `npm run dev` or `npm run build` to generate the declarations. The module uses Nitro's `build:before` hook in Vite to generate types from the actual plugin configuration during both dev startup and builds. Standalone `nitro prepare` does not read inline `vite.config.ts` options; a separate `predev` or `prebuild` command running it is not required for this integration.
+
+### Upgrading an existing Vite project
+
+1. Install the release containing the fix, replacing any local test tarball dependency:
+
+   ```bash
+   npm install nitro-di@^0.1.3
+   ```
+
+2. Apply the TypeScript config above and keep DI settings in one place: either `nitro.config.ts` or `nitro({})`.
+3. Remove `nitro prepare` workaround scripts added solely for this Vite issue.
+4. Restart the dev server. In VS Code, run **TypeScript: Restart TS Server** if completion remains stale.
+
+Restart the dev server after changing discovery patterns or adding dependency files. This fix generates types on startup/build; it does not add hot reloading for Awilix's runtime-loaded services.
 
 ## Without auto-imports
 
@@ -154,17 +215,17 @@ Types remain inferred from discovered classes in both modes. Override completion
 
 Runtime glob loading requires the source files to be deployed and the process started from the project root. A standalone `.output` directory does not contain these source files. This package targets Node.js; it is not an edge-runtime integration. `resolve` and `cradle` are reserved helper names.
 
-After publication, add the versioned dependency to your project:
+Add the versioned dependency to your project:
 
 ```json
 {
   "dependencies": {
-    "nitro-di": "^0.1.0"
+    "nitro-di": "^0.1.3"
   }
 }
 ```
 
-Or run `npm install nitro-di@^0.1.0`.
+Or run `npm install nitro-di@^0.1.3`.
 
 ## Refresh editor types
 

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 import test from "node:test";
-import nitroDI from "../module.mjs";
+import nitroDI from "../di.mjs";
 
 test("shares configured patterns with auto-import discovery and runtime", () => {
   const patterns = ["*/services/**/*.ts", "*/repos/**/*.ts"];
@@ -16,6 +16,7 @@ test("shares configured patterns with auto-import discovery and runtime", () => 
   assert.deepEqual(options.runtimeConfig.nitroDI.dirs, patterns);
   assert.equal(options.imports.imports[0].name, "existing");
   assert.equal(options.imports.imports[1].name, "di");
+  assert.ok(options.plugins[0].endsWith("/plugin.ts"));
 });
 
 test("supports explicit imports and empty configuration", () => {
@@ -62,4 +63,13 @@ test("disabled imports retains discovery without implicit imports", () => {
   assert.equal(hooks.length, 1);
   assert.equal(hooks[0].name, "build:before");
   assert.equal(typeof hooks[0].callback, "function");
+});
+
+ test("debug defaults to false and accepts only booleans", () => {
+  for (const debug of [undefined, false, true]) {
+    const options = { rootDir: process.cwd(), di: { dirs: [], debug }, runtimeConfig: {} };
+    nitroDI.setup({ options });
+    assert.equal(options.runtimeConfig.nitroDI.debug, debug ?? false);
+  }
+  assert.throws(() => nitroDI.setup({ options: { di: { debug: "true" } } }), /debug must be a boolean/);
 });

@@ -1,22 +1,22 @@
 {
   "name": "nitro-di",
-  "version": "0.1.3",
+  "version": "0.1.6",
   "type": "module",
+  "main": "./di.mjs",
+  "types": "./di.d.ts",
   "files": [
-    "module.mjs",
-    "module.d.ts",
-    "runtime.ts",
-    "types.ts",
+    "di.mjs",
+    "di.d.ts",
+    "plugin.ts",
     "README.md",
-    "tsconfig.json"
+    "tsconfig.json",
+    "LICENSE"
   ],
   "exports": {
     ".": {
-      "types": "./module.d.ts",
-      "default": "./module.mjs"
+      "types": "./di.d.ts",
+      "default": "./di.mjs"
     },
-    "./runtime": "./runtime.ts",
-    "./types": "./types.ts",
     "./tsconfig": "./tsconfig.json"
   },
   "peerDependencies": {
@@ -27,6 +27,16 @@
     "tsx": "^4.23.13"
   },
   "description": "nitroDI — typed dependency injection and auto-loading for Nitro",
+  "license": "MIT",
+  "keywords": [
+    "nitro",
+    "nitro-di",
+    "dependency-injection",
+    "awilix",
+    "typescript",
+    "auto-import",
+    "vite"
+  ],
   "author": {
     "name": "abdallah-zaghloul",
     "email": "3bdallahzaghloul@gmail.com",
@@ -47,5 +57,11 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

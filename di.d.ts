@@ -19,9 +19,6 @@ declare module "nitro/types" {
     /** Default-exported classes discovered by Awilix and Nitro auto-imports. */
     di?: DIOptions;
   }
-  interface NitroRuntimeConfig {
-    nitroDI: { debug: boolean; dirs: string[]; resolverOptions: { lifetime: LifetimeType } };
-  }
 }
 
 declare const module: NitroModule;
@@ -37,24 +34,16 @@ export type MethodOf<T extends Constructor<any> | InstanceType<any> | object> =
     [K in keyof T]: T[K] extends Method ? K : never;
   }[keyof T];
 
-// Nitro updates this module's exports when its auto-import scan finds new files.
-type AutoImports = Omit<typeof import("#imports"), "di">;
+/** Augmented from the configured service and repository files. */
+export interface DIRegistry {}
 
-type ClassInstances = {
-  [K in keyof AutoImports as AutoImports[K] extends Constructor
-    ? K
-    : never]: InstanceType<Extract<AutoImports[K], Constructor>>;
-};
-
-// Keep unresolved imports from introducing an unrestricted string index.
 export type Cradle = {
-  [K in keyof ClassInstances as string extends K
-    ? never
-    : K]: ClassInstances[K];
+  [K in keyof DIRegistry as DIRegistry[K] extends Constructor ? K : never]:
+    InstanceType<Extract<DIRegistry[K], Constructor>>;
 };
 
 type ConstructorArgs<K extends keyof Cradle> = ConstructorParameters<
-  Extract<AutoImports[K], Constructor>
+  Extract<DIRegistry[K], Constructor>
 >[number];
 
 // Match registered dependencies to the selected constructor's argument types.

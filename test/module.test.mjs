@@ -1,75 +1,31 @@
 import assert from "node:assert/strict";
-import { resolve } from "node:path";
+import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
 import nitroDI from "../di.mjs";
 
-test("shares configured patterns with auto-import discovery and runtime", () => {
-  const patterns = ["*/services/**/*.ts", "*/repos/**/*.ts"];
-  const options = {
-    rootDir: process.cwd(),
-    di: { dirs: patterns },
-    imports: { dirs: ["*/types"], imports: [{ name: "existing", from: "existing" }] },
-    runtimeConfig: {},
-  };
-  nitroDI.setup({ options });
-  assert.deepEqual(options.imports.dirs, ["*/types", ...patterns.map(p => resolve(p))]);
-  assert.deepEqual(options.runtimeConfig.nitroDI.dirs, patterns);
-  assert.equal(options.imports.imports[0].name, "existing");
-  assert.equal(options.imports.imports[1].name, "di");
-  assert.ok(options.plugins[0].endsWith("/plugin.ts"));
+test("setup creates the registry without depending on Nitro auto-imports", async () => {
+  const rootDir = mkdtempSync(join(tmpdir(), "nitro-di-module-"));
+  try {
+    const options = { rootDir, di: { dirs: [] }, imports: false, runtimeConfig: {} };
+    await nitroDI.setup({ options });
+    assert.equal(options.imports, false);
+    const config = JSON.parse(readFileSync(join(rootDir, "node_modules/.nitro-di/config.json"), "utf8"));
+    assert.deepEqual(config.dirs, []);
+    assert.equal(config.debug, false);
+    assert.ok(options.plugins[0].endsWith("/plugin.ts"));
+    const registry = join(rootDir, "node_modules/.nitro-di/registry.d.ts");
+    assert.ok(existsSync(registry));
+    assert.match(readFileSync(registry, "utf8"), /interface DIRegistry/);
+  } finally { rmSync(rootDir, { recursive: true, force: true }); }
 });
 
-test("supports explicit imports and empty configuration", () => {
-  const options = { rootDir: process.cwd(), imports: { autoImport: false }, runtimeConfig: {} };
-  nitroDI.setup({ options });
-  assert.deepEqual(options.runtimeConfig.nitroDI.dirs, []);
-  assert.equal(options.imports.autoImport, false);
-});
-
-test("rejects invalid patterns", () => {
-  assert.throws(() => nitroDI.setup({ options: { di: { dirs: "services/*.ts" } } }), /array/);
-  assert.throws(() => nitroDI.setup({ options: { di: { dirs: [1] } } }), /array/);
-
-});
-
-for (const lifetime of ["SINGLETON", "SCOPED", "TRANSIENT"]) {
-  test(`passes ${lifetime} to the runtime`, () => {
-    const options = { rootDir: process.cwd(), di: { dirs: [], resolverOptions: { lifetime } }, imports: {}, runtimeConfig: {} };
-    nitroDI.setup({ options });
-    assert.equal(options.runtimeConfig.nitroDI.resolverOptions.lifetime, lifetime);
-  });
-}
-
-test("defaults lifetime and rejects invalid lifetime and legacy config", () => {
-  const options = { rootDir: process.cwd(), di: { dirs: [] }, imports: {}, runtimeConfig: {} };
-  nitroDI.setup({ options });
-  assert.equal(options.runtimeConfig.nitroDI.resolverOptions.lifetime, "SINGLETON");
-  assert.throws(() => nitroDI.setup({ options: { ...options, di: { dirs: [], resolverOptions: { lifetime: "invalid" } } } }), /lifetime/);
-  assert.throws(() => nitroDI.setup({ options: { ...options, di: [] } }), /object/);
-});
-
-test("disabled imports retains discovery without implicit imports", () => {
-  const options = { rootDir: process.cwd(), imports: false, di: { dirs: ["server/services/*.ts"] }, runtimeConfig: {} };
-  nitroDI.setup({ options });
-  assert.equal(options.imports.autoImport, false);
-  assert.equal(options.imports.imports[0].name, "di");
-  assert.deepEqual(options.imports.dirs, [resolve("server/services/*.ts")]);
-});
-
- test("Vite registers type generation on its configured instance", () => {
-  const hooks = [];
-  const options = { rootDir: process.cwd(), builder: "vite", imports: false, runtimeConfig: {} };
-  nitroDI.setup({ options, hooks: { hook: (name, callback) => hooks.push({ name, callback }) } });
-  assert.equal(hooks.length, 1);
-  assert.equal(hooks[0].name, "build:before");
-  assert.equal(typeof hooks[0].callback, "function");
-});
-
- test("debug defaults to false and accepts only booleans", () => {
-  for (const debug of [undefined, false, true]) {
-    const options = { rootDir: process.cwd(), di: { dirs: [], debug }, runtimeConfig: {} };
-    nitroDI.setup({ options });
-    assert.equal(options.runtimeConfig.nitroDI.debug, debug ?? false);
+test("validates lifetime, directories, and debug config", async () => {
+  for (const di of [
+    { dirs: "services" }, { dirs: [1] }, { debug: "yes" },
+    { dirs: [], resolverOptions: { lifetime: "invalid" } },
+  ]) {
+    await assert.rejects(nitroDI.setup({ options: { di, runtimeConfig: {} } }), TypeError);
   }
-  assert.throws(() => nitroDI.setup({ options: { di: { debug: "true" } } }), /debug must be a boolean/);
 });

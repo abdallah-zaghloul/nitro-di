@@ -20,17 +20,13 @@ test("runtime supports callable/property access, overrides, and inline lifetime"
   try {
     writeFileSync(join(root, "package.json"), '{"type":"module"}');
     mkdirSync(join(root, "services"));
+    mkdirSync(join(root, "node_modules/.nitro-di"), { recursive: true });
+    writeFileSync(join(root, "node_modules/.nitro-di/config.json"), JSON.stringify({ dirs: ["services/*.ts"], debug: false, resolverOptions: { lifetime: "SINGLETON" } }));
     writeFileSync(join(root, "services/repo.ts"), 'export default class { find() { return "original"; } }');
     writeFileSync(join(root, "services/service.ts"), 'export default class { constructor(private repo: any) {} show() { return this.repo.find(); } }');
     writeFileSync(join(root, "services/transient.ts"), `import { di, Lifetime, RESOLVER } from ${JSON.stringify(moduleURL)}; export default class { static [RESOLVER] = { lifetime: Lifetime.TRANSIENT }; show() { return di.service.show(); } }`);
     const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
       import assert from 'node:assert/strict';
-      import { registerHooks } from 'node:module';
-      // Replace only Nitro's virtual runtime configuration; exercise the real DI module.
-      const config = 'data:text/javascript,' + encodeURIComponent('export const useRuntimeConfig = () => ({nitroDI:{dirs:["services/*.ts"],resolverOptions:{lifetime:"SINGLETON"}}});');
-      registerHooks({resolve(specifier, context, next) {
-        return specifier === 'nitro/runtime-config' ? {url: config, shortCircuit: true} : next(specifier, context);
-      }});
       const {di, Lifetime, RESOLVER} = await import(${JSON.stringify(moduleURL)});
       assert.throws(() => di('service'), /container is not ready/);
       const {default: initialize} = await import(${JSON.stringify(pluginURL)});
@@ -68,26 +64,24 @@ test("runtime supports callable/property access, overrides, and inline lifetime"
 
 for (const debug of [false, true]) {
   test(`initialization failure preserves rejection with debug=${debug}`, () => {
+    const root = mkdtempSync(join(tmpdir(), "nitro-di-failure-"));
     const pluginURL = new URL("../plugin.ts", import.meta.url).href;
-    const result = spawnSync(process.execPath, ["--input-type=module", "-e", `
-      import assert from 'node:assert/strict';
-      import { registerHooks } from 'node:module';
-      const config = 'data:text/javascript,' + encodeURIComponent('export const useRuntimeConfig = () => ({nitroDI:{debug:${debug},dirs:[42],resolverOptions:{lifetime:"SINGLETON"}}});');
-      registerHooks({resolve(specifier, context, next) {
-        return specifier === 'nitro/runtime-config' ? {url: config, shortCircuit: true} : next(specifier, context);
-      }});
-      const logs = [];
-      console.error = (...args) => logs.push(args);
-      const {default: initialize} = await import(${JSON.stringify(pluginURL)});
-      let request;
-      initialize({hooks: {hook(name, callback) { request = callback; }}});
-      // Let startup fail before a request arrives; no unhandled rejection is allowed.
-      await new Promise(resolve => setTimeout(resolve, 30));
-      await assert.rejects(request());
-      assert.equal(logs.length, ${debug ? 1 : 0});
-      if (${debug}) assert.match(logs[0][0], /Container initialization failed/);
-    `], {encoding: "utf8", timeout: 20000});
-    assert.equal(result.error, undefined, result.error?.message);
-    assert.equal(result.status, 0, result.stderr + result.stdout);
+    try {
+      mkdirSync(join(root, "node_modules/.nitro-di"), { recursive: true });
+      writeFileSync(join(root, "node_modules/.nitro-di/config.json"), JSON.stringify({ debug, dirs: [42], resolverOptions: { lifetime: "SINGLETON" } }));
+      const code = "import assert from 'node:assert/strict';\n" +
+        "const logs = []; console.error = (...args) => logs.push(args);\n" +
+        `const {default: initialize} = await import(${JSON.stringify(pluginURL)});\n` +
+        "let request; initialize({hooks: {hook(name, callback) { request = callback; }}});\n" +
+        "await new Promise(resolve => setTimeout(resolve, 30));\n" +
+        "await assert.rejects(request());\n" +
+        `assert.equal(logs.length, ${debug ? 1 : 0});\n` +
+        `${debug ? "assert.match(logs[0][0], /Container initialization failed/);" : ""}`;
+      const result = spawnSync(process.execPath, ["--input-type=module", "-e", code], {cwd: root, encoding: "utf8", timeout: 20000});
+      assert.equal(result.error, undefined, result.error?.message);
+      assert.equal(result.status, 0, result.stderr + result.stdout);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 }
